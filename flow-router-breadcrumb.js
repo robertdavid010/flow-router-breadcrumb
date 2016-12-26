@@ -4,6 +4,7 @@ var Breadcrumb = {};
 
 var data = {}; // routes are registered here on initialization
 var dataArray = []; // this is the data to render
+var crumbArr = [];
 var cakeDataArray = []; // this is the cake data to render
 var inited = false; // flag for initialization
 
@@ -11,15 +12,18 @@ var inited = false; // flag for initialization
 var levelConfig = {
     "listLevel": {
         depth: 1,
-        order: 1
+        order: 1,
+        priority: 1
     },
     "detailsLevel": {
         depth: 2,
-        order: 1
+        order: 1,
+        priority: 2
     },
     "inputLevel": {
         depth: 1,
-        order: 1
+        order: 1,
+        priority: 3
     }
 };
 
@@ -39,25 +43,30 @@ Breadcrumb.initialize = function () {
     if (r != "home") {
         // this is not home, so we add the first crumb...
     }
-    cakeDataArray[0] = {homeLevel: "home"};
+    var homeRoute = Breadcrumb.Config.homeRoute;
+    var routePath = data[homeRoute];
+    cakeDataArray[0] = {homeLevel: [routePath]};
     inited = true;
 };
 
 // Register
 Breadcrumb.register = function (route) {
 
+    route.options.breadcrumb.title = route.options.breadcrumb.title || 'No Title';
+
+    data[route.name] = route;
+
     if (!inited) {
         Breadcrumb.initialize();
     }
 
-    route.options.breadcrumb.title = route.options.breadcrumb.title || 'No Title';
-
-    data[route.name] = route;
 };
 
-Breadcrumb.generate = function (routeName) {
+Breadcrumb.generate = function (paramsAll) {
     // This will generate the cake crumbs
-    var routeName = routeName || FlowRouter.getRouteName();
+    // This disabled, always assumed name from router;
+    // var routeName = routeName || FlowRouter.getRouteName();
+    var routeName = FlowRouter.getRouteName();
     // Get the stored route info that was registered
     // this is where we hook into Session();
     // var cakeRoute = Session.get("cakeCrumbs");
@@ -65,76 +74,142 @@ Breadcrumb.generate = function (routeName) {
     // console.log(cakeRoute);
     // Gets the registered route data
     var getRouter = data[routeName];
-    var level = getRouter.options.breadcrumb.level || null;
+    // console.log("paramsAll");
+    // console.log(paramsAll);
+    // console.log("looking at the router object:");
+    // console.log(getRouter);
+    var level = getRouter.options && getRouter.options.breadcrumb && getRouter.options.breadcrumb.level || null;
     var crumbs = cakeDataArray;
-    var arr = [];
-
 
     var matched;
     var numElem = 0;
-    // matched = crumbs.filter(function (e, i) {
-    //     console.log(i);
-    //     console.log(e);
-    //     if (e[level]) {
-    //         // numElem = i;
-    //         return true;
-    //     }else {
-    //         return false;
-    //     }
-    // });
+
 
     crumbs.forEach(function (e, i) {
-        matched = (e[level]) ? i : -1;
+        // this is not evaluating correctly
+        // or is it now?
+        // console.log("looping for: " + level);
+        // console.log(e);
+        // console.log(e[level]);
+        if (e[level] || Array.isArray(e[level])) {
+            matched =  i;
+        } else {
+            matched = !matched ? -1 : matched; // THIS IS OVERWRITING
+        }
     });
     console.log("matched elements: ");
     console.log(matched);
-    // console.log("the matched element number");
-    // console.log(numElem);
-    // if (matched.length > 0) {
-        // console.log("FIND THE ELEMENT PLEASE");
-        // console.log(crumbs.indexOf(matched));
-
-
-    // }
 
     // var theElem = cakeDataArray.indexOf(getRouter.options.breadcrumb.level);
     console.log("the existing cakeCrumbs array");
     console.log(cakeDataArray);
-    if (!matched || matched <= 0) {
-        // there is no element
-        console.log("there is no existing top level element for this route level");
-        // console.log(cakeDataArray);
-        console.log(level);
-        // console.log(theElem);
-    } else {
+    var arr = [];
+    if (matched && matched > 0) {
         // these is an element
         console.log("there is an existing top level element");
+        console.log(level);
         arr = cakeDataArray && cakeDataArray[matched] && cakeDataArray[matched][level] || []; // get array for this level
     }
 
-    var isInArray = arr.indexOf(getRouter.name);
+    // Add the params
+    for (var p in paramsAll) {
+        getRouter[p] = paramsAll[p];
+    }
+
+    // Check this level array for this route
+    console.log("arr");
+    console.log(arr);
+    console.log("router name: " + getRouter.name);
+    var isInArray = -1;
+    for (var i = arr.length - 1; i >= 0; i--) {
+        var nm = arr[i];
+        console.log("** checking name in arr");
+        console.log(nm.name);
+        if (nm.name === getRouter.name) {
+            isInArray = i;
+        }
+    }
+    console.log("isInArray");
+    console.log(isInArray)
+    // var isInArray = arr.indexOf({name: getRouter.name});
     if (isInArray < 0) {
         // there is no array element of this name
         console.log("this route was not in the level");
-        arr.push(getRouter.name);
+        console.log(getRouter.name)
+        arr.push(getRouter);
     } else {
         // there is an element with this name
         console.log("this route WAS in the level");
-        arr[isInArray] = getRouter.name;
+        arr[getRouter.name] = getRouter;
     }
-    var e = Math.max(matched, 1);
-    console.log("this is the new element");
-    console.log(e);
+    var e;
+    if (matched === -1) {
+        // Put this as a new element
+        if (cakeDataArray.length > 0) {
+            e = cakeDataArray.length;
+        } else {
+            e = 1;
+        }
+    } else {
+        // we reserve [0] for home, so min is [1], with the matched elem
+        // e = Math.max(matched, 1);
+        e = matched;
+    }
+
+    // This lets us nest it in another array
     var updater = {};
+    // console.log("updating the tracker:");
     updater[getRouter.options.breadcrumb.level] = arr;
+    // console.log(updater);
     cakeDataArray[e] = updater;
-    console.log("cakeDataArray:");
-    console.log(cakeDataArray);
-    // process the cake
+
+    // we can return false to break reactiveness?
+
+}; // END Breadcrumb.generate()
+
+Breadcrumb.render = function () {
+
+    console.log("starting breadcrumb render");
+    var url;
+    var routeName = routeName || FlowRouter.getRouteName();
+    // initialize crumb array
+    crumbArr = [];
+    // generate our better crumbs
+    // this loops the level objects
+    for (var i = 0; i < cakeDataArray.length; i++) {
+        var ob = cakeDataArray[i];
+        var elem = ob[Object.keys(ob)[0]];
+
+        console.log("object lopper");
+        console.log(cakeDataArray.length);
+        // now loop the array in the nested object
+
+        var routes = elem.forEach(function (el, ix, arr) {
+            var obj = {};
+            obj.url = FlowRouter.path(el.name, el.params, el.queryParams);
+            obj.title = el.options.breadcrumb.title;
+            if (routeName === el.name) {
+                obj.activeClass = "active";
+            } else {
+                obj.activeClass = "";
+            }
+            // if (ix === arr.length -1 && i === cakeDataArray.length) {
+            // } else {
+            //     obj.activeClass = "";
+            // }
+            // console.log("Updater again:");
+            // console.log(el);
+            crumbArr.push(obj); // TODO: This causes the helper re-trigger
+        });
+
+    };
+
+    return crumbArr;
+
 };
 
 // Render. NOTE: Currently never called with routeName
-Breadcrumb.render = function (routeName) {
+Breadcrumb.oldrender = function (routeName) {
     // This function gets the route data,
     // and recursively checks for parent data as defined
     // in the route definition
@@ -219,10 +294,26 @@ FlowRouter.onRouteRegister(function (route) {
     }
 });
 
+if (Meteor.isClient) {
+    Meteor.startup(function() {
+        Tracker.autorun(function(c) {
+          FlowRouter.watchPathChange();
+          var paramsAll = FlowRouter.current();
+          // console.log("changed the router");
+          // console.log(FlowRouter.current());
+          if (FlowRouter._initialized) {
+            Breadcrumb.generate(paramsAll); // This just triggers the generate on route change...
+          }
+          // var currentContext = FlowRouter.current();
+          // do anything with the current context
+          // or anything you wish
+        });
+    });
+}
+
 /**
  * Global Template helper
  */
 Template.registerHelper('breadcrumb', function () {
-    Breadcrumb.generate();
     return Breadcrumb.render();
 });
