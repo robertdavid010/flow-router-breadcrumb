@@ -40,12 +40,12 @@ Breadcrumb.initialize = function () {
     console.log("we are initializing cakeCrumbs");
     // console.log(route);
     var r = FlowRouter.getRouteName();
-    if (r != "home") {
-        // this is not home, so we add the first crumb...
-    }
     var homeRoute = Breadcrumb.Config.homeRoute;
-    var routePath = data[homeRoute];
-    cakeDataArray[0] = {homeLevel: [routePath]};
+    if (r != homeRoute) {
+        // this is not home, so we add the first crumb...
+        var routePath = data[homeRoute];
+        cakeDataArray[0] = {homeLevel: [routePath]};
+    }
     inited = true;
 };
 
@@ -81,20 +81,24 @@ Breadcrumb.generate = function (paramsAll) {
     var level = getRouter.options && getRouter.options.breadcrumb && getRouter.options.breadcrumb.level || null;
     var crumbs = cakeDataArray;
 
-    var matched;
+    var matched = -1;
     var numElem = 0;
 
 
     crumbs.forEach(function (e, i) {
         // this is not evaluating correctly
         // or is it now?
-        // console.log("looping for: " + level);
-        // console.log(e);
-        // console.log(e[level]);
+        console.log("looping for: " + level);
+        console.log(e);
+        console.log(e[level]);
+        console.log("is array?: " + Array.isArray(e[level]))
         if (e[level] || Array.isArray(e[level])) {
             matched =  i;
         } else {
-            matched = !matched ? -1 : matched; // THIS IS OVERWRITING
+            // if (!matched) {
+            //     matched = -1;
+            // }
+            // matched = !matched ? -1 : matched; // THIS IS OVERWRITING
         }
     });
     console.log("matched elements: ");
@@ -104,7 +108,7 @@ Breadcrumb.generate = function (paramsAll) {
     console.log("the existing cakeCrumbs array");
     console.log(cakeDataArray);
     var arr = [];
-    if (matched && matched > 0) {
+    if (matched || matched > 0) {
         // these is an element
         console.log("there is an existing top level element");
         console.log(level);
@@ -139,29 +143,39 @@ Breadcrumb.generate = function (paramsAll) {
         arr.push(getRouter);
     } else {
         // there is an element with this name
+        // we want to spice first:
+        arr.splice(isInArray, 1);
         console.log("this route WAS in the level");
-        arr[getRouter.name] = getRouter;
+        // arr[getRouter.name] = getRouter;
+        arr.push(getRouter);
     }
-    var e;
+
+    // TODO: this is where we can sort priority
+    // var e;
+    var updater = {};
+    updater[getRouter.options.breadcrumb.level] = arr;
     if (matched === -1) {
         // Put this as a new element
-        if (cakeDataArray.length > 0) {
-            e = cakeDataArray.length;
-        } else {
-            e = 1;
-        }
+        // Do a push intead
+        // if (cakeDataArray.length > 0) {
+            // e = cakeDataArray.length;
+        // } else {
+            // e = 1;
+        // }
     } else {
         // we reserve [0] for home, so min is [1], with the matched elem
         // e = Math.max(matched, 1);
-        e = matched;
+        // e = matched;
+        if (matched != 0) {
+            cakeDataArray.splice(matched, 1);
+        }
     }
 
     // This lets us nest it in another array
-    var updater = {};
-    // console.log("updating the tracker:");
-    updater[getRouter.options.breadcrumb.level] = arr;
-    // console.log(updater);
-    cakeDataArray[e] = updater;
+    console.log("updating the tracker:");
+    console.log(updater);
+    cakeDataArray.push(updater);
+    // cakeDataArray[e] = updater;
 
     // we can return false to break reactiveness?
 
