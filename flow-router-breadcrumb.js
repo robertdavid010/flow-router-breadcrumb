@@ -1,15 +1,25 @@
-if (Meteor.isClient) {
-}
+/**
+ * Breadcrumbs with cakecrumb feature added.
+ *
+ * Cakecrumbs can be better then breadcrumbs. They are
+ * dynamically generated based on the navigation history
+ * of the user.
+ * Crumbs are names of routes grouped into levels defined
+ * in the "breadcrumb" element of the route definition.
+ * These crumbs and levels can then be assiged priority
+ * and other properties in the new configuration options.
+ *
+ */
 var Breadcrumb = {};
 
 var data = {}; // routes are registered here on initialization
-var dataArray = []; // this is the data to render
-var crumbArr = [];
-var cakeDataArray = []; // this is the cake data to render
+var dataArray = []; // this is the data to render for breadcrumbs
+var crumbArr = []; // Temporarily holds the cake crumbs
+var cakeDataArray = []; // this is the cake data to render for cakecrumbs
 var inited = false; // flag for initialization
 
-// Config
-var levelConfig = {
+// Configs
+var levelsConfig = {
     "listLevel": {
         depth: 1,
         order: 1,
@@ -27,11 +37,10 @@ var levelConfig = {
     }
 };
 
-// Or...
 Breadcrumb.Config = {
     homeRoute: "home",
     maxLevels: 4,
-    levelConfig: levelConfig
+    levelsConfig: levelsConfig
 };
 
 // Initialize
@@ -64,140 +73,82 @@ Breadcrumb.register = function (route) {
 
 Breadcrumb.generate = function (paramsAll) {
     // This will generate the cake crumbs
-    // This disabled, always assumed name from router;
-    // var routeName = routeName || FlowRouter.getRouteName();
+
     var routeName = FlowRouter.getRouteName();
-    // Get the stored route info that was registered
-    // this is where we hook into Session();
-    // var cakeRoute = Session.get("cakeCrumbs");
-    // console.log("are we getting cakeCrumbs?");
-    // console.log(cakeRoute);
-    // Gets the registered route data
+
+    // Get the necessary necessary data
     var getRouter = data[routeName];
-    // console.log("paramsAll");
-    // console.log(paramsAll);
-    // console.log("looking at the router object:");
-    // console.log(getRouter);
     var level = getRouter.options && getRouter.options.breadcrumb && getRouter.options.breadcrumb.level || null;
     var crumbs = cakeDataArray;
 
-    var matched = -1;
-    var numElem = 0;
-
-
-    crumbs.forEach(function (e, i) {
-        // this is not evaluating correctly
-        // or is it now?
-        console.log("looping for: " + level);
-        console.log(e);
-        console.log(e[level]);
-        console.log("is array?: " + Array.isArray(e[level]))
-        if (e[level] || Array.isArray(e[level])) {
-            matched =  i;
-        } else {
-            // if (!matched) {
-            //     matched = -1;
-            // }
-            // matched = !matched ? -1 : matched; // THIS IS OVERWRITING
-        }
-    });
-    console.log("matched elements: ");
-    console.log(matched);
-
-    // var theElem = cakeDataArray.indexOf(getRouter.options.breadcrumb.level);
-    console.log("the existing cakeCrumbs array");
-    console.log(cakeDataArray);
-    var arr = [];
-    if (matched || matched > 0) {
-        // these is an element
-        console.log("there is an existing top level element");
-        console.log(level);
-        arr = cakeDataArray && cakeDataArray[matched] && cakeDataArray[matched][level] || []; // get array for this level
-    }
-
-    // Add the params
+    // Add the passed route params
     for (var p in paramsAll) {
         getRouter[p] = paramsAll[p];
     }
 
-    // Check this level array for this route
-    console.log("arr");
-    console.log(arr);
-    console.log("router name: " + getRouter.name);
+    // Initialize matched value
+    var matched = -1;
+
+    // Check array for matching nested object
+    crumbs.forEach(function (e, i) {
+        if (e[level] || Array.isArray(e[level])) {
+            matched =  i;
+        }
+    });
+
+    var arr = [];
+    if (matched || matched > 0) {
+        arr = cakeDataArray && cakeDataArray[matched] && cakeDataArray[matched][level] || []; // get array for this level
+    }
+
     var isInArray = -1;
     for (var i = arr.length - 1; i >= 0; i--) {
         var nm = arr[i];
-        console.log("** checking name in arr");
-        console.log(nm.name);
         if (nm.name === getRouter.name) {
             isInArray = i;
         }
     }
-    console.log("isInArray");
-    console.log(isInArray)
-    // var isInArray = arr.indexOf({name: getRouter.name});
-    if (isInArray < 0) {
-        // there is no array element of this name
-        console.log("this route was not in the level");
-        console.log(getRouter.name)
-        arr.push(getRouter);
-    } else {
-        // there is an element with this name
-        // we want to spice first:
+
+    if (isInArray >= 0) {
         arr.splice(isInArray, 1);
-        console.log("this route WAS in the level");
-        // arr[getRouter.name] = getRouter;
-        arr.push(getRouter);
     }
+
+    arr.push(getRouter);
 
     // TODO: this is where we can sort priority
-    // var e;
     var updater = {};
     updater[getRouter.options.breadcrumb.level] = arr;
-    if (matched === -1) {
-        // Put this as a new element
-        // Do a push intead
-        // if (cakeDataArray.length > 0) {
-            // e = cakeDataArray.length;
-        // } else {
-            // e = 1;
-        // }
+    var homeRoute = Breadcrumb.Config.homeRoute;
+    if (getRouter.name === homeRoute) {
+        // This should only ever be 0
+        cakeDataArray[matched] = updater;
     } else {
-        // we reserve [0] for home, so min is [1], with the matched elem
-        // e = Math.max(matched, 1);
-        // e = matched;
-        if (matched != 0) {
+        // This blocks the homeLevel from changing
+        if (matched > 0) {
             cakeDataArray.splice(matched, 1);
         }
+        cakeDataArray.push(updater);
     }
 
-    // This lets us nest it in another array
-    console.log("updating the tracker:");
-    console.log(updater);
-    cakeDataArray.push(updater);
-    // cakeDataArray[e] = updater;
-
-    // we can return false to break reactiveness?
+    return false;
 
 }; // END Breadcrumb.generate()
 
-Breadcrumb.render = function () {
+// Dynamically generate and update crumb data
+Breadcrumb.renderCake = function () {
 
-    console.log("starting breadcrumb render");
-    var url;
+    crumbArr = []; // Clear data array
     var routeName = routeName || FlowRouter.getRouteName();
-    // initialize crumb array
-    crumbArr = [];
-    // generate our better crumbs
-    // this loops the level objects
+
+    // Loop through the level objects
     for (var i = 0; i < cakeDataArray.length; i++) {
         var ob = cakeDataArray[i];
         var elem = ob[Object.keys(ob)[0]];
 
-        console.log("object lopper");
-        console.log(cakeDataArray.length);
-        // now loop the array in the nested object
+        // console.log("object lopper"); // Will show reactive retriggers
+        // console.log(cakeDataArray.length);
 
+        // Loop in the array of nested object
         var routes = elem.forEach(function (el, ix, arr) {
             var obj = {};
             obj.url = FlowRouter.path(el.name, el.params, el.queryParams);
@@ -207,12 +158,6 @@ Breadcrumb.render = function () {
             } else {
                 obj.activeClass = "";
             }
-            // if (ix === arr.length -1 && i === cakeDataArray.length) {
-            // } else {
-            //     obj.activeClass = "";
-            // }
-            // console.log("Updater again:");
-            // console.log(el);
             crumbArr.push(obj); // TODO: This causes the helper re-trigger
         });
 
@@ -222,22 +167,17 @@ Breadcrumb.render = function () {
 
 };
 
-// Render. NOTE: Currently never called with routeName
-Breadcrumb.oldrender = function (routeName) {
-    // This function gets the route data,
-    // and recursively checks for parent data as defined
-    // in the route definition
+// Recursively generate static crumb data
+Breadcrumb.renderBread = function (routeName) {
 
     dataArray = []; // Clear data array for the first time
-    // cakeDataArray = []; // WE WANT THIS TO PERSIST
 
-    // Always uses routeName
     var routeName = routeName || FlowRouter.getRouteName();
 
-    // Gets the registered route data
+    // Get the registered route data
     var getRouter = data[routeName];
 
-    // Gen route url
+    // Generate route url
     var paramAndQuery = genParamAndQuery(getRouter.options.breadcrumb);
     var url = FlowRouter.path(routeName, paramAndQuery.params, paramAndQuery.queryParams);
 
@@ -260,7 +200,7 @@ Breadcrumb.oldrender = function (routeName) {
 var getParent = function (route) {
     var getRouter = data[route];
 
-    // Gen route url
+    // Generate route url
     var paramAndQuery = genParamAndQuery(getRouter.options.breadcrumb);
     var url = FlowRouter.path(route, paramAndQuery.params, paramAndQuery.queryParams);
 
@@ -300,34 +240,35 @@ var genParamAndQuery = function (breadcrumb) {
 /**
  * Register to flow router
  */
- // NOTE: This runs once for every defined route, to 
- // propagate the data[] object above
 FlowRouter.onRouteRegister(function (route) {
     if (route.options.breadcrumb) {
         Breadcrumb.register(route);
     }
 });
 
+/**
+ * Track route changes
+ */
 if (Meteor.isClient) {
     Meteor.startup(function() {
         Tracker.autorun(function(c) {
           FlowRouter.watchPathChange();
-          var paramsAll = FlowRouter.current();
-          // console.log("changed the router");
-          // console.log(FlowRouter.current());
           if (FlowRouter._initialized) {
-            Breadcrumb.generate(paramsAll); // This just triggers the generate on route change...
+            // Trigger the dynamic crumb generation on route change...
+            var paramsAll = FlowRouter.current();
+            Breadcrumb.generate(paramsAll);
           }
-          // var currentContext = FlowRouter.current();
-          // do anything with the current context
-          // or anything you wish
         });
     });
 }
 
 /**
- * Global Template helper
+ * Global Template helpers
  */
 Template.registerHelper('breadcrumb', function () {
-    return Breadcrumb.render();
+    return Breadcrumb.renderBread();
+});
+
+Template.registerHelper('cakecrumb', function () {
+    return Breadcrumb.renderCake();
 });
