@@ -18,6 +18,9 @@ var crumbArr = []; // Temporarily holds the cake crumbs
 var cakeDataArray = []; // this is the cake data to render for cakecrumbs
 var inited = false; // flag for initialization
 
+
+// May want to try and track the crumbs in a session if they are dynamic
+
 // Configs
 var levelsConfig = {
     "listLevel": {
@@ -43,19 +46,19 @@ Breadcrumb.Config = {
     levelsConfig: levelsConfig
 };
 
-// Initialize
+// Initialize for cakeCumbs
 Breadcrumb.initialize = function () {
     // Session.set("cakeCrumbs", {});
-    console.log("we are initializing cakeCrumbs");
+    // console.log("we are initializing cakeCrumbs");
     // console.log(route);
     var r = FlowRouter.getRouteName();
     var homeRoute = Breadcrumb.Config.homeRoute;
     if (r != homeRoute) {
-        // this is not home, so we add the first crumb...
+        // this is not home, so we add the first crumb as the home route
         var routePath = data[homeRoute];
         cakeDataArray[0] = {homeLevel: [routePath]};
     }
-    inited = true;
+    inited = true; // We have initialized the breadcrumb package
 };
 
 // Register
@@ -74,34 +77,48 @@ Breadcrumb.register = function (route) {
 Breadcrumb.generate = function (paramsAll) {
     // This will generate the cake crumbs
 
-    var routeName = FlowRouter.getRouteName();
+    // var routeName = FlowRouter.getRouteName(); // Why not get this from paramsAll?
+    var routeName = paramsAll.route.name;
+    // console.log("generating crumb: routeName");
+    // console.log(routeName);
 
     // Get the necessary necessary data
-    var getRouter = data[routeName];
-    var level = getRouter.options && getRouter.options.breadcrumb && getRouter.options.breadcrumb.level || null;
+    var getRouter = data[routeName]; // Get registered route info
+    var bCrumb = getRouter && getRouter.options && getRouter.options.breadcrumb || null;
+    // var level = getRouter && getRouter.options && getRouter.options.breadcrumb && getRouter.options.breadcrumb.level || null;
+    var level = bCrumb && bCrumb.level || null
+    // var priority = Breadcrumb.Config.levelsConfig[routeName] && Breadcrumb.Config.levelsConfig[routeName].priority;
     var crumbs = cakeDataArray;
 
     // Add the passed route params
+    // TODO: Isn't this just a simple merge? It just updates the registered data
+    // This is to add params etc?
     for (var p in paramsAll) {
-        getRouter[p] = paramsAll[p];
+        if (p && getRouter) {getRouter[p] = paramsAll[p];}
     }
 
+    // TODO: We can change this whole matching logic?
+    // We just trim and place based on priority?
     // Initialize matched value
     var matched = -1;
+    var arr = [];
 
-    // Check array for matching nested object
+    // This hecks for existing level in crumbs
     crumbs.forEach(function (e, i) {
         if (e[level] || Array.isArray(e[level])) {
             matched =  i;
         }
     });
 
-    var arr = [];
-    if (matched || matched > 0) {
-        arr = cakeDataArray && cakeDataArray[matched] && cakeDataArray[matched][level] || []; // get array for this level
+    if (matched && matched > 0) {
+        // Get the existing array of items currently set for this level
+        console.log("this level exists");
+        console.log(matched);
+        arr = cakeDataArray && cakeDataArray[matched] && cakeDataArray[matched][level] || [];
     }
 
     var isInArray = -1;
+    // Go through the array (if not empty) to check if this route is in the array
     for (var i = arr.length - 1; i >= 0; i--) {
         var nm = arr[i];
         if (nm.name === getRouter.name) {
@@ -110,25 +127,39 @@ Breadcrumb.generate = function (paramsAll) {
     }
 
     if (isInArray >= 0) {
-        arr.splice(isInArray, 1);
+        // var len = arr.length - (isInArray);
+        arr.splice(isInArray); // Adjust the level array to put this route as last crumb
+        console.log("we are modding the array")
+        console.log(arr);
     }
 
-    arr.push(getRouter);
+    arr.push(getRouter); // Add the level array item
+    console.log(arr);
 
     // TODO: this is where we can sort priority
+    // TODO: We need to trim cumbs to the current lowest level
     var updater = {};
-    updater[getRouter.options.breadcrumb.level] = arr;
+
+    if (level) {
+        updater[level] = arr;
+    }
+
     var homeRoute = Breadcrumb.Config.homeRoute;
-    if (getRouter.name === homeRoute) {
+    if (getRouter && getRouter.name === homeRoute) {
         // This should only ever be 0
+        cakeDataArray = [];
         cakeDataArray[matched] = updater;
     } else {
-        // This blocks the homeLevel from changing
         if (matched > 0) {
-            cakeDataArray.splice(matched, 1);
+            var len = cakeDataArray.length - (matched + 1);
+            cakeDataArray.splice(matched); // removes level to be overwritten
         }
         cakeDataArray.push(updater);
     }
+
+    // Session.set("sessCrumbs", cakeDataArray);
+    console.log("checking cakeDataArray");
+    console.log(cakeDataArray);
 
     return false;
 
@@ -139,16 +170,21 @@ Breadcrumb.renderCake = function () {
 
     crumbArr = []; // Clear data array
     var routeName = routeName || FlowRouter.getRouteName();
+    // var cDataArr = Session.get("sessCrumbs");
+    // console.log("this is the session object");
+    // console.log(cDataArr);
 
     // Loop through the level objects
     for (var i = 0; i < cakeDataArray.length; i++) {
         var ob = cakeDataArray[i];
         var elem = ob[Object.keys(ob)[0]];
 
-        // console.log("object lopper"); // Will show reactive retriggers
+        // console.log("object looper"); // Will show reactive retriggers
         // console.log(cakeDataArray.length);
 
         // Loop in the array of nested object
+        // console.log("what is the elem?");
+        // console.log(elem);
         var routes = elem.forEach(function (el, ix, arr) {
             var obj = {};
             obj.url = FlowRouter.path(el.name, el.params, el.queryParams);
@@ -241,6 +277,7 @@ var genParamAndQuery = function (breadcrumb) {
  * Register to flow router
  */
 FlowRouter.onRouteRegister(function (route) {
+    // This puts all route breadcrumb definitions in the data[] array;
     if (route.options.breadcrumb) {
         Breadcrumb.register(route);
     }
