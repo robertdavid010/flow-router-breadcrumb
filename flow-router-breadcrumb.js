@@ -94,7 +94,7 @@ Breadcrumb.generate = function (paramsAll) {
   var bCrumb = getRouter && getRouter.options && getRouter.options.breadcrumb || null;
   var level = bCrumb && bCrumb.level || null; // What if there is no level? Assume highest?
   var levelCfg = Breadcrumb.Config.levelsConfig[level] || null;
-  var priority = levelCfg.priority;
+  var priority = levelCfg.priority || null;
 
   // Start checking the existing crumbs for matching levels and routes
   var levelMatch = crumbs.findIndex(function (e, i) {
@@ -132,8 +132,6 @@ Breadcrumb.generate = function (paramsAll) {
 
   }
 
-  console.log("checking cakeDataArray");
-  console.log(cakeDataArray);
   Breadcrumb.renderCake(); // This forces re-render, which was not always happening
 
 }; // END Breadcrumb.generate()
@@ -261,7 +259,6 @@ var genParamAndQuery = function (breadcrumb) {
  			FlowRouter.watchPathChange();
  			if (FlowRouter._initialized) {
             // Trigger the dynamic crumb generation on route change...
-            console.log("triggered by route");
             var paramsAll = FlowRouter.current();
             Breadcrumb.generate(paramsAll);
           }
