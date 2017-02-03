@@ -9,8 +9,42 @@
  * These crumbs and levels can then be assiged priority
  * and other properties in the new configuration options.
  *
+ * In the route breadcrumb definition use as follows:
+
+  routeName.route("/routeName", {
+   name: "routeName",
+   breadcrumb: {
+     title: "Route Title",
+     parent: "homeRoute", // For backwards compatibility with original Breadcrumbs
+     level: "level01" // New! Used by cakeCrumbs for defining dynamic ancestry
+   },
+   ...
+  });
+
+ *
+ * Also, the cakecrumbs feature requires a configuration object to be available to the package.
+ * It needs to be defined as follows:
+
+  Breadcrumb.Config = {
+    homeRoute: "home", // This route will always be at the "top" of the crumbs list
+    maxLevels: 4, // Unsed for now, potential future feature
+    levelsConfig: {
+      "level01" : { // This is the "level" property set in the route breadcrumb definition
+        depth: 1, // Unsed for now, potential future feature
+        order: 1, // Unsed for now, potential future feature
+        priority: 0 // Used to override lower priority crumbs (0 based). Experimental, cannot well resolve conflicts, so it is required explicitly and uniquely per level.
+      },
+      "level02": {
+        ...
+      }
+    }
+  };
+
+ *
  */
- var Breadcrumb = {};
+
+if (!Breadcrumb) { var Breadcrumb = {}; };
+
 
 var data = {}; // routes are registered here on initialization
 var dataArray = []; // this is the data to render for breadcrumbs
